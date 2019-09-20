@@ -1,0 +1,26 @@
+/**
+* Book:     The Pragmatic Programmer
+* Chapter:  2 - A Pragmatic Approach
+* Exercise: 6
+* Page:     63
+*
+* Design a BNF grammar to parse a time specification. All of the following
+* examples should be accepted.
+*
+* 4pm, 7:38pm, 23:42, 3:16, 3:16am
+*
+* Andre Zunino <neyzunino@gmail.com>
+* 20 September 2019
+*/
+
+<time>      ::= <hours> <ampm> |
+                <hours> <sep> <minutes> <ampm>?
+
+<hours>     ::= ::digit:: || ::digit:: ::digit::
+
+<minutes>   ::= ::digit:: ::digit::
+
+<sep>       ::= ':'
+
+<ampm>      ::= 'am' | 'pm'
+          
