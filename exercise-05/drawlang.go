@@ -55,40 +55,50 @@ func Parse(input string) ([]ParsedCommand, error) {
     strReader := strings.NewReader(input)
     bufReader := bufio.NewReader(strReader)
     b := bufio.NewScanner(bufReader)
-    var s scanner.Scanner
     parsedCommands := []ParsedCommand {}
     for b.Scan() {  // for each line of input
         line := strings.TrimSpace(b.Text())
         if len(line) == 0 {
             continue
         }
-        s.Init(strings.NewReader(b.Text()))
-        tok := s.Scan()
-        if (s.TokenText() == CommentDelim) {
-            continue
+        parsedCmd, err := parseLine(line)
+        if err != nil {
+            return parsedCommands, err
         }
-        cmd, ok := commandMap[s.TokenText()]
-        if !ok {
-            return parsedCommands, fmt.Errorf("Command '%s' not recognized", s.TokenText())
+        if parsedCmd != nil {
+            parsedCommands = append(parsedCommands, *parsedCmd)
         }
-        arg := ""
-        tok = s.Scan()
-        if cmd.hasArg {
-            if tok == scanner.EOF || s.TokenText() == CommentDelim {
-                return parsedCommands, fmt.Errorf("Missing required argument for command %s", cmd.keyword)
-            }
-            arg = s.TokenText()
-            tok = s.Scan()
-            if tok != scanner.EOF && s.TokenText() != CommentDelim {
-                return parsedCommands, fmt.Errorf("Command '%s' takes a single argument", cmd.keyword)
-            }
-        } else {
-            if tok != scanner.EOF && s.TokenText() != CommentDelim {
-                return parsedCommands, fmt.Errorf("Command '%s' does not expect arguments", cmd.keyword)
-            }
-        }
-        parsedCommands = append(parsedCommands, ParsedCommand {cmd.keyword, arg})
     }
     return parsedCommands, nil
+}
+
+func parseLine(line string) (*ParsedCommand, error) {
+    var s scanner.Scanner
+    s.Init(strings.NewReader(line))
+    tok := s.Scan()
+    if (s.TokenText() == CommentDelim) {
+        return nil, nil
+    }
+    cmd, ok := commandMap[s.TokenText()]
+    if !ok {
+        return nil, fmt.Errorf("Command '%s' not recognized", s.TokenText())
+    }
+    arg := ""
+    tok = s.Scan()
+    if cmd.hasArg {
+        if tok == scanner.EOF || s.TokenText() == CommentDelim {
+            return nil, fmt.Errorf("Missing required argument for command %s", cmd.keyword)
+        }
+        arg = s.TokenText()
+        tok = s.Scan()
+        if tok != scanner.EOF && s.TokenText() != CommentDelim {
+            return nil, fmt.Errorf("Command '%s' takes a single argument", cmd.keyword)
+        }
+    } else {
+        if tok != scanner.EOF && s.TokenText() != CommentDelim {
+            return nil, fmt.Errorf("Command '%s' does not expect arguments", cmd.keyword)
+        }
+    }
+    return &ParsedCommand{cmd.keyword, arg}, nil
 }
 
