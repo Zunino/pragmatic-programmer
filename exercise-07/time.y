@@ -16,12 +16,16 @@
 #include <stdbool.h>
 #include <ctype.h>
 
+#include "parser.h"
+
 #define YYDEBUG 1
 
 const char* input;
 char msg_buffer[80];
+callback_fn callback;
 
-bool check_12_hour_value(int);
+bool check_value(int value, int max, const char* const message);
+const char* const status_str[] = {"OK", "ERROR"};
 
 int yylex();
 int yyerror(const char* const err);
@@ -34,26 +38,21 @@ int yyerror(const char* const err);
 
 %%
 time:       hours am_pm {
-                if (!check_12_hour_value($1)) YYABORT;
-                printf("Hour + AM/PM\n");
+                if (!check_value($1, 11, "is an invalid hour value in 12-hour format")) YYABORT;
+                callback(OK, "Hour + AM/PM");
             }
             | hours SEP minutes {
-                printf("Hour + colon + minutes\n");
+                callback(OK, "Hour + colon + minutes");
             }
             | hours SEP minutes am_pm {
-                if (!check_12_hour_value($1)) YYABORT;
-                printf("hours: %d | minutes: %d | ampm: %d\n", $1, $3, $4);
-                printf("Hour + colon + minutes + AM/PM\n");
+                if (!check_value($1, 11, "is an invalid hour value in 12-hour format")) YYABORT;
+                callback(OK, "Hour + colon + minutes + AM/PM");
             }
             ;
 
 hours:      DIGIT | two_digit {
-                if ($1 > 23) {
-                    sprintf(msg_buffer, "%d is not valid for hours", $1);
-                    yyerror(msg_buffer);
-                    YYABORT;
-                }
-                $$ = $1 * 60;
+                if (!check_value($1, 23, "is an invalid hour value")) YYABORT;
+                $$ = $1;
             };
 
 two_digit:  DIGIT DIGIT {
@@ -71,21 +70,21 @@ am_pm:      AM {
 
 minutes:    DIGIT DIGIT {
                 $$ = $1 * 10 + $2;
-                if ($$ > 59) {
-                    sprintf(msg_buffer, "%d is not valid for minutes", $$);
-                    yyerror(msg_buffer);
-                    YYABORT;
-                }
+                if (!check_value($$, 59, "is an invalid minute value")) YYABORT;
             }
 %%
 
-bool check_12_hour_value(int hours) {
-    if (hours > 12) {
-        sprintf(msg_buffer, "%d is not valid for hours in 12-clock format", hours);
+bool check_value(int value, int max, const char* const message) {
+    if (value > max) {
+        sprintf(msg_buffer, "%d %s", value, message);
         yyerror(msg_buffer);
         return false;
     }
     return true;
+}
+
+const char* const str(enum status_t status) {
+    return status_str[status];
 }
 
 int yylex() {
@@ -109,14 +108,12 @@ int yylex() {
 }
 
 int yyerror(const char* const err) {
-    fprintf(stderr, "Error: %s\n", err);
+    callback(ERROR, err);
 }
 
-int main(int argc, char* argv[]) {
-    if (argc > 1) {
-        input = argv[1];
-        yyparse();
-    }
-    return 0;
+void parse(const char* text, callback_fn fn) {
+    input = text;
+    callback = fn;
+    yyparse();
 }
 
